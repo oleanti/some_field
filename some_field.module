@@ -1,0 +1,263 @@
+<?php
+/**
+ * Implements hook_field_info().
+ *
+ * Provides the description of the field.
+ */
+function some_field_field_info() {
+  return array(
+    'field_some' => array(
+      'label' => t('Social media field'),
+      'description' => t('Demonstrates a field composed of an RGB color.'),
+      'default_widget' => 'field_some_input',
+      'default_formatter' => 'field_some_simple_link',
+    ),
+  );
+}
+/**
+ * Implements hook_field_validate().
+ *
+ */
+function some_field_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+
+  foreach ($items as $delta => $item) {
+    if(!some_field_field_is_empty($item, $field)){
+      _some_validate($items[$delta], $delta, $field, $entity, $instance, $langcode, $errors);
+    }
+  }
+}
+/**
+ * Implements hook_field_insert().
+ */
+function some_field_field_insert($entity_type, $entity, $field, $instance, $langcode, &$items) {
+
+  foreach ($items as $delta => $value) {
+    _some_process($items[$delta]);
+  }
+}
+
+/**
+ * Implements hook_field_update().
+ */
+function some_field_field_update($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  foreach ($items as $delta => $value) {
+    _some_process($items[$delta]);
+  }
+}
+
+/**
+ * Implements hook_field_is_empty().
+ *
+ */
+function some_field_field_is_empty($item, $field) {
+  return empty($item['raw']);
+}
+/**
+ * Implements hook_field_formatter_info().
+ *
+ */
+function some_field_field_formatter_info() {
+  return array(
+    // This formatter just displays the hex value in the color indicated.
+    'field_some_simple_link' => array(
+      'label' => t('Simple link'),
+      'field types' => array('field_some'),
+    ),
+  );
+}
+/**
+ * Implements hook_field_formatter_view().
+ *
+ */
+function some_field_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  switch ($display['type']) {
+    // This formatter simply outputs the field as text and with a color.
+    case 'field_some_simple_link':
+      foreach ($items as $delta => $item) {
+        $element[$delta] = array(
+          '#type' => 'html_tag',
+          '#tag' => 'div',
+          '#value' => l($item['label'], $item['link']),
+          '#attributes' => array(
+            'class' => $item['service'].' '.$item['type'],
+          ),
+        );
+      }
+      break;
+  }
+  return $element;
+}
+/**
+ * Implements hook_field_widget_info().
+ *
+ */
+function some_field_field_widget_info() {
+  return array(
+    'field_some_input' => array(
+      'label' => t('Textfield to input'),
+      'field types' => array('field_some'),
+    ),
+  );
+}
+/**
+ * Implements hook_field_widget_form().
+ *
+ */
+function some_field_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+
+  $raw = isset($items[$delta]['raw']) ? $items[$delta]['raw'] : '';
+  $label = isset($items[$delta]['label']) ? $items[$delta]['label'] : NULL;
+  $widget = $element;
+  $widget['#delta'] = $delta;
+  $desc = '';
+
+  if(isset($form_state['values']) && $form_state['triggering_element']['#parents'][2] == $delta){
+    // If $form_state['values'] is set, this is a ajax callback. Or is it?
+    $raw = $form_state['values'][$field['field_name']][$langcode][$delta]['raw'];
+    $label = $form_state['values'][$field['field_name']][$langcode][$delta]['label'];
+    $tmp_item = array(
+      'raw' => $raw
+    );
+    _some_process($tmp_item);
+    if(isset($tmp_item['label'])){
+      $label = $tmp_item['label'];
+    }else{
+      $desc = t('Url not recognised');
+    }
+  }
+  switch ($instance['widget']['type']) {
+    case 'field_some_input':
+      $wrapper_id = $field['field_name'].'_'.$delta;
+      $element['raw'] = array(
+        '#type' => 'textfield',
+        '#default_value' => $raw,
+        '#title' => t('Url'),
+        '#tree' => TRUE,
+        '#ajax' => array(
+          'callback' => 'ajax_some_label_callback',
+          'wrapper' => $wrapper_id,
+        )
+      );
+      $element['label'] = array(
+        '#type' => 'textfield',
+        '#default_value' => $label,
+        '#title' => t('Label'),
+        '#prefix' => '<div id="'.$wrapper_id.'">',
+        '#suffix' => '</div>',
+        '#disabled' => isset($label) ? FALSE : TRUE,
+        '#description' => $desc
+      );
+
+      break;
+  }
+  return $element;
+}
+function ajax_some_label_callback($form, $form_state) {
+  $element = $form_state['triggering_element']['#parents'];
+  $raw_value = $form_state['triggering_element']['#value'];
+  $field_name = $element[0];
+  $lang = $element[1];
+  $delta = $element[2];
+  return $form[$field_name][$lang][$delta]['label'];
+}
+function _some_process(&$item) {
+
+  $url = $item['raw'];
+  $cid = 'some_'.$url;
+  $data = &drupal_static(__FUNCTION__);
+  if (!isset($data[$url])){
+    if ($cache = cache_get($cid)) {
+      $data[$url] = $cache->data;
+    } else {
+      $link_info = _some_find_info($url);
+      if(is_array($link_info)){
+        $data[$url]['service'] = $link_info['service'];
+        $data[$url]['type'] = $link_info['type'];
+        $data[$url]['id'] = $link_info['id'];
+        $data[$url]['label'] = $link_info['label'];
+        $data[$url]['link'] = $link_info['link'];
+      }else{
+        $data[$url] = NULL;
+      }
+      cache_set($cid, $data[$url], 'cache', time() + 360);
+    }
+  }
+  if(isset($data[$url]) && is_array($data[$url])){
+    $item['service'] = $data[$url]['service'];
+    $item['type'] = $data[$url]['type'];
+    $item['id'] = $data[$url]['id'];
+    // If label is set use label, else get label from service
+    if(!isset($item['label']) || strlen($item['label']) == 0){
+      $item['label'] = $data[$url]['label'];
+    }
+    $item['link'] = $data[$url]['link'];
+  }
+}
+function _some_validate(&$item, $delta, $field, $entity, $instance, $langcode, &$errors){
+  _some_process($item, $delta, $field, $entity);
+  if(!isset($item['id'])){
+    //todo: should we accept any urls?
+    $errors[$field['field_name']][$langcode][$delta][] = array(
+      'message' => t('Url not recognised.'),
+      'error_element' => array('raw' => TRUE),
+    );
+  }
+}
+function _some_find_info($url){
+  $parsed = parse_url($url);
+
+  if(substr($parsed['path'], 0, 12) == 'facebook.com'){
+    $url = 'http://www.facebook.com'.substr($parsed['path'], 12);
+    $parsed['host'] = 'www.facebook.com';
+  }
+  if(isset($parsed['host']) && ($parsed['host'] == 'www.facebook.com' || $parsed['host'] == 'facebook.com')){
+    return get_facebook_info($url);
+  }elseif(isset($parsed['host']) && ($parsed['host'] == 'www.twitter.com' || $parsed['host'] == 'twitter.com')){
+    //return get_twitter_info($url);
+  }
+  return NULL;
+}
+function get_json_from_url($url){
+  //todo: is this class necessary?
+  require_once 'curl.class.php';
+  $curl = new Curl();
+  $curl->setHeader('X-Requested-With', 'XMLHttpRequest');
+  $result = $curl->get($url);
+  return $curl->response;
+}
+function get_facebook_info($url){
+  $graph_url = 'http://graph.facebook.com/?fields=username,name,link,id&ids='.$url;
+  $result = get_json_from_url($graph_url);
+  $return = NULL;
+  if(!isset($result->error) && is_object($result->$url)){
+    // error not set and result object is present
+    $type = '';
+    $link = '';
+    $result_object = $result->$url;
+
+    //todo: this needs to be better
+    if(isset($result_object->link)){
+      $type = 'page';
+      $link = $result_object->link;
+    }elseif(isset($result_object->username)){
+      $type = 'person';
+      $link = 'https://www.facebook.com/'.$result_object->username;
+    }
+    if($type){
+      $return = array(
+        'service' => 'facebook',
+        'id' => $result_object->id,
+        'type' => $type,
+        'label' => $result_object->name,
+        'link' => $link
+      );
+    }
+  }
+  return $return;
+}
+function get_twitter_info($url){
+  $parsed = parse_url($url);
+
+  return NULL;
+}

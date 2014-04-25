@@ -1,0 +1,4 @@
+name = Social media link field
+description = A field that can link to social media content
+package = Other
+core = 7.x

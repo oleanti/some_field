@@ -1,0 +1,43 @@
+<?php
+/**
+ * Implements hook_field_schema().
+ *
+ */
+function some_field_field_schema($field) {
+  $columns = array(
+    'raw' => array(
+      'type' => 'varchar',
+      'length' => 2048,
+      'not null' => FALSE
+    ),
+    'service' => array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE
+    ),
+    'type' => array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE
+    ),
+    'id' => array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE
+    ),
+    'label' => array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE
+    ),
+    'link' => array(
+      'type' => 'varchar',
+      'length' => 2048,
+      'not null' => FALSE
+    ),
+
+  );
+  return array(
+    'columns' => $columns,
+  );
+}
