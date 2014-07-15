@@ -214,7 +214,7 @@ function _some_find_info($url){
   if(isset($parsed['host']) && ($parsed['host'] == 'www.facebook.com' || $parsed['host'] == 'facebook.com')){
     return get_facebook_info($url);
   }elseif(isset($parsed['host']) && ($parsed['host'] == 'www.twitter.com' || $parsed['host'] == 'twitter.com')){
-    //return get_twitter_info($url);
+    return get_twitter_info($url);
   }
   return NULL;
 }
@@ -257,7 +257,22 @@ function get_facebook_info($url){
   return $return;
 }
 function get_twitter_info($url){
+  $return = NULL;
   $parsed = parse_url($url);
+  $screen_name = substr($parsed['path'], 1);
 
-  return NULL;
+  module_load_include('inc', 'twitter');
+  $twitter = twitter_connect(user_load(1));
+  $request = $twitter->users_show($screen_name);
+  if(is_object($request)){
+    $link = 'https://twitter/'.$request->screen_name;
+    $return = array(
+      'service' => 'twitter',
+      'id' => $request->id_str,
+      'type' => 'account',
+      'label' => $request->name,
+      'link' => $link
+    );
+  }
+  return $return;
 }
