@@ -262,7 +262,7 @@ function get_twitter_info($url){
   $screen_name = substr($parsed['path'], 1);
 
   module_load_include('inc', 'twitter');
-  $twitter = twitter_connect(user_load(1));
+  $twitter = twitter_connect();
   $request = $twitter->users_show($screen_name);
   if(is_object($request)){
     $link = 'https://twitter/'.$request->screen_name;
